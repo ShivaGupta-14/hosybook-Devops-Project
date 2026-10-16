@@ -27,8 +27,10 @@ spec:
           readinessProbe:
             httpGet: {path: /, port: 8080}
             initialDelaySeconds: 3
+            timeoutSeconds: 3
           livenessProbe:
             httpGet: {path: /, port: 8080}
             initialDelaySeconds: 10
+            timeoutSeconds: 3
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
