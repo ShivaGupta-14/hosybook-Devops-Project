@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-URL=${1:-http://hosybook.local}
+URL=${1:-http://hosybook.localhost:8080}
 COUNT=${2:-300}
 
 echo "sending $COUNT requests to $URL"

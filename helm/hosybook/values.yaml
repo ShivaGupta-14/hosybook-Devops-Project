@@ -25,7 +25,7 @@ postgres:
 ingress:
   enabled: true
   className: nginx
-  host: hosybook.local
+  host: hosybook.localhost
 
 hpa:
   enabled: true
