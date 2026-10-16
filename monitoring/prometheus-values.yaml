@@ -1,0 +1,19 @@
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorNamespaceSelector: {}
+    retention: 2d
+
+grafana:
+  enabled: true
+  adminPassword: hosybook
+  service:
+    type: ClusterIP
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: ALL
+
+alertmanager:
+  enabled: false
