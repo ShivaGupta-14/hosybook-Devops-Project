@@ -120,7 +120,9 @@ Workflow file is `.github/workflows/ci-cd.yml`. It runs on every push and PR to 
 
 ## Security scan (Trivy)
 
-Trivy scans the OS packages and Python/Node libraries inside both images. The pipeline fails if it finds any HIGH or CRITICAL issue that already has a fix. To keep the scan clean I upgrade OS packages in both Dockerfiles (`apt-get upgrade` and `apk upgrade`) and use patched versions of FastAPI and Starlette.
+Trivy scans every image right after it is built and before it is pushed. For the backend it checked the Debian 13 base (87 OS packages) and all the Python libraries, for the frontend it checked the Alpine 3.21 base of the nginx image (68 packages). The step uses `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1`, so if any high or critical issue with an available fix shows up, the job fails and the image never reaches GHCR.
+
+Both scans came back clean (0 vulnerabilities). This is mainly because both Dockerfiles upgrade the OS packages during the build. For example, `apk upgrade` in the frontend image updated 22 old packages from the nginx base image like libpng, libxml2 and xz-libs, which are the kind of libraries where CVEs usually show up. I also use newer FastAPI and Starlette versions that already have the known fixes.
 
 ## Terraform (AWS)
 
@@ -128,8 +130,8 @@ Trivy scans the OS packages and Python/Node libraries inside both images. The pi
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
 terraform init
-terraform plan
-terraform apply
+terraform plan -out=tfplan
+terraform apply tfplan
 aws eks update-kubeconfig --region ap-south-1 --name hosybook-eks
 terraform destroy
 ```
@@ -185,6 +187,87 @@ Grafana login is `admin` / `hosybook`. The HosyBook dashboard shows requests per
 
 To see the graphs and HPA move, run `./scripts/load-test.sh`.
 
+## Problems I ran into
+
+- **Backend crashed on first start** in compose because the migration ran before postgres was ready. Fixed with a `pg_isready` healthcheck and `condition: service_healthy`.
+- **Helm upgrade failed with a conflict on `replicas`** because the HPA also changes that field. Now the chart only sets `replicas` when HPA is off.
+- **Minikube kept restarting pods** when the app, Prometheus, Grafana and Argo CD all ran together with a load test. Docker Desktop only had about 8 GB of RAM. I made probe timeouts a bit longer, turned off the 25 default Grafana dashboards and only kept the HosyBook one, and stopped running everything at the same time.
+- **GHCR needs lowercase names** but my GitHub username has capitals, so the workflow lowercases the owner before tagging.
+
 ## Screenshots
 
-Screenshots are in the `screenshots/` folder.
+### App (M1)
+
+App running with Docker Compose at `localhost:3000`:
+
+![app](screenshots/02-app-docker-compose.png)
+
+Swagger docs with all endpoints:
+
+![swagger](screenshots/03-swagger-docs.png)
+
+### Tests (M2)
+
+![pytest](screenshots/04-pytest.png)
+
+### Git and GitHub (M3)
+
+![repo](screenshots/06-github-repo.png)
+
+![git log](screenshots/05-git-log.png)
+
+### Docker (M4)
+
+![compose](screenshots/01-docker-compose-up.png)
+
+### CI/CD (M5)
+
+![pipeline](screenshots/07-pipeline-green.png)
+
+![ghcr backend](screenshots/07c-ghcr-packages.png)
+
+![ghcr frontend](screenshots/07d-ghcr-frontend.png)
+
+### Trivy (M6)
+
+![trivy](screenshots/07b-trivy-scan.png)
+
+### Terraform (M7)
+
+![plan](screenshots/14-terraform-plan.png)
+
+EKS cluster active in ap-south-1:
+
+![aws console](screenshots/15-aws-console.png)
+
+VPC created by terraform:
+
+![vpc](screenshots/15c-aws-vpc.png)
+
+Connected to EKS, both nodes ready:
+
+![eks nodes](screenshots/15b-eks-nodes.png)
+
+Destroyed right after, and checked nothing is left:
+
+![destroy](screenshots/16-terraform-destroy.png)
+
+![cleanup](screenshots/16b-aws-cleanup-check.png)
+
+### Kubernetes + Helm (M8)
+
+![pods](screenshots/08-k8s-pods-svc.png)
+
+![helm](screenshots/09-helm-list.png)
+
+App opened through the ingress:
+
+![ingress](screenshots/10-app-ingress.png)
+
+### Monitoring (M9)
+
+![metrics](screenshots/11-metrics.png)
+
+![prometheus](screenshots/12-prometheus-targets.png)
+
+![grafana](screenshots/13-grafana.png)
