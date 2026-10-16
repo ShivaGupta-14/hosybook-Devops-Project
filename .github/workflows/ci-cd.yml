@@ -1,0 +1,114 @@
+name: HosyBook CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "screenshots/**"
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Run pytest
+        working-directory: backend
+        run: pytest -v
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+  build-scan-push:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image names
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "BACKEND_IMAGE=$REGISTRY/$OWNER/hosybook-backend:${{ github.sha }}" >> $GITHUB_ENV
+          echo "FRONTEND_IMAGE=$REGISTRY/$OWNER/hosybook-frontend:${{ github.sha }}" >> $GITHUB_ENV
+
+      - name: Build backend image
+        run: docker build -t $BACKEND_IMAGE ./backend
+
+      - name: Build frontend image
+        run: docker build -t $FRONTEND_IMAGE ./frontend
+
+      - name: Trivy scan backend
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.BACKEND_IMAGE }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Trivy scan frontend
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.FRONTEND_IMAGE }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Login to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push images
+        if: github.event_name == 'push'
+        run: |
+          docker push $BACKEND_IMAGE
+          docker push $FRONTEND_IMAGE
+
+  deploy:
+    needs: build-scan-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update image tag in helm values
+        run: |
+          sed -i "s/^  tag: .*/  tag: ${{ github.sha }}/" helm/hosybook/values.yaml
+          grep -n "tag:" helm/hosybook/values.yaml
+
+      - name: Commit new tag for argocd
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add helm/hosybook/values.yaml
+          git commit -m "ci: deploy ${GITHUB_SHA::7} [skip ci]" || echo "nothing to commit"
+          git push
