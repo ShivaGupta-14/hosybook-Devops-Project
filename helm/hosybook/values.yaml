@@ -1,0 +1,38 @@
+backend:
+  image: ghcr.io/shivagupta-14/hosybook-backend
+  tag: latest
+  replicas: 2
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 384Mi}
+
+frontend:
+  image: ghcr.io/shivagupta-14/hosybook-frontend
+  tag: latest
+  replicas: 2
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+
+imagePullSecrets: []
+
+postgres:
+  database: hosybook
+  username: hosybook
+  password: hosybook
+  storage: 1Gi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: hosybook.local
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  cpu: 60
+
+serviceMonitor:
+  enabled: true
+  release: monitoring
