@@ -6,6 +6,7 @@ prometheus:
 
 grafana:
   enabled: true
+  defaultDashboardsEnabled: false
   adminPassword: hosybook
   service:
     type: ClusterIP

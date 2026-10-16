@@ -16,3 +16,4 @@ dist/
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+tfplan
