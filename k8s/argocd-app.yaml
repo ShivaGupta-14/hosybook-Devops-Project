@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hosybook
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ShivaGupta-14/hosybook-Devops-Project-.git
+    targetRevision: main
+    path: helm/hosybook
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hosybook
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
