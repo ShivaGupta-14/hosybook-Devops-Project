@@ -1,6 +1,6 @@
 backend:
   image: ghcr.io/shivagupta-14/hosybook-backend
-  tag: latest
+  tag: 16fc9d9454229cb797b9834311dda0a79bdd1ce4
   replicas: 2
   resources:
     requests: {cpu: 100m, memory: 128Mi}
@@ -8,7 +8,7 @@ backend:
 
 frontend:
   image: ghcr.io/shivagupta-14/hosybook-frontend
-  tag: latest
+  tag: 16fc9d9454229cb797b9834311dda0a79bdd1ce4
   replicas: 2
   resources:
     requests: {cpu: 50m, memory: 64Mi}
